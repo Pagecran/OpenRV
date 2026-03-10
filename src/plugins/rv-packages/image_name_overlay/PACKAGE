@@ -1,0 +1,10 @@
+package: ImageNameOverlay
+version: 1.1
+openrv: 2.0.0
+modes:
+  - file: ImageNameOverlay.mu
+    menu: View/Image Name Overlay
+    shortcut: ''
+    event: ''
+    load: immediate
+description: "Ajoute un bouton View/Image Name Overlay pour afficher le nom de chaque image en bas a droite de chaque vignette en layout."

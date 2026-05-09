@@ -1,11 +1,11 @@
 package: Sequence From File
 author: Autodesk, Inc.
 organization: Autodesk, Inc.
-version: 1.4
+version: 1.5
 requires: ''
 rv: 3.10.9
 openrv: 1.0.0
-optional: true
+optional: false
 
 modes: 
   - file: file_sequence_mode.mu

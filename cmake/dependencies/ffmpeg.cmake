@@ -162,6 +162,10 @@ GET_PROPERTY(
   RV_FFMPEG_EXTERNAL_LIBS GLOBAL
   PROPERTY "RV_FFMPEG_EXTERNAL_LIBS"
 )
+GET_PROPERTY(
+  RV_FFMPEG_PKG_CONFIG_PATHS GLOBAL
+  PROPERTY "RV_FFMPEG_PKG_CONFIG_PATHS"
+)
 
 # Make a list of common FFmpeg config options
 LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--enable-shared")
@@ -174,6 +178,7 @@ LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--disable-vaapi")
 LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--disable-doc")
 IF(RV_TARGET_WINDOWS)
   LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--toolchain=msvc")
+  LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--pkg-config=/mingw64/bin/pkg-config.exe")
 ENDIF()
 
 # Change the condition to TRUE to be able to debug into FFmpeg.
@@ -284,11 +289,30 @@ LIST(REMOVE_DUPLICATES RV_FFMPEG_CONFIG_OPTIONS)
 LIST(REMOVE_DUPLICATES RV_FFMPEG_EXTRA_C_OPTIONS)
 LIST(REMOVE_DUPLICATES RV_FFMPEG_EXTRA_LIBPATH_OPTIONS)
 LIST(REMOVE_DUPLICATES RV_FFMPEG_EXTERNAL_LIBS)
+LIST(REMOVE_DUPLICATES RV_FFMPEG_PKG_CONFIG_PATHS)
+
+SET(_ffmpeg_customization
+    "${RV_FFMPEG_CONFIG_OPTIONS};${RV_FFMPEG_EXTRA_C_OPTIONS};${RV_FFMPEG_EXTRA_LIBPATH_OPTIONS};${RV_FFMPEG_EXTERNAL_LIBS};${RV_FFMPEG_PKG_CONFIG_PATHS}"
+)
+IF(NOT _ffmpeg_customization STREQUAL RV_FFMPEG_CUSTOMIZATION_CACHE)
+  SET(${_force_rebuild}
+      TRUE
+  )
+  SET(RV_FFMPEG_CUSTOMIZATION_CACHE
+      "${_ffmpeg_customization}"
+      CACHE STRING "FFmpeg customization flags" FORCE
+  )
+ENDIF()
 
 SET(_ffmpeg_preprocess_pkg_config_path
     $ENV{PKG_CONFIG_PATH}
 )
-LIST(APPEND _ffmpeg_preprocess_pkg_config_path "${RV_DEPS_DAVID_LIB_DIR}/pkgconfig")
+IF(DEFINED RV_DEPS_DAVID_LIB_DIR
+   AND RV_DEPS_DAVID_LIB_DIR
+)
+  LIST(APPEND _ffmpeg_preprocess_pkg_config_path "${RV_DEPS_DAVID_LIB_DIR}/pkgconfig")
+ENDIF()
+LIST(APPEND _ffmpeg_preprocess_pkg_config_path ${RV_FFMPEG_PKG_CONFIG_PATHS})
 IF(RV_TARGET_WINDOWS)
   FOREACH(
     _ffmpeg_pkg_config_path_element IN
@@ -296,10 +320,15 @@ IF(RV_TARGET_WINDOWS)
   )
     # Changing path start from "c:/..." to "/c/..." and replacing all backslashes with slashes since PkgConfig wants a linux path
     STRING(REPLACE "\\" "/" _ffmpeg_pkg_config_path_element "${_ffmpeg_pkg_config_path_element}")
-    STRING(REPLACE ":" "" _ffmpeg_pkg_config_path_element "${_ffmpeg_pkg_config_path_element}")
-    STRING(FIND ${_ffmpeg_pkg_config_path_element} / _ffmpeg_first_slash_index)
-    IF(_ffmpeg_first_slash_index GREATER 0)
-      STRING(PREPEND _ffmpeg_pkg_config_path_element "/")
+    IF(_ffmpeg_pkg_config_path_element MATCHES "^([A-Za-z]):/(.*)")
+      STRING(TOLOWER "${CMAKE_MATCH_1}" _ffmpeg_pkg_config_drive)
+      SET(_ffmpeg_pkg_config_path_element "/${_ffmpeg_pkg_config_drive}/${CMAKE_MATCH_2}")
+    ELSE()
+      STRING(REPLACE ":" "" _ffmpeg_pkg_config_path_element "${_ffmpeg_pkg_config_path_element}")
+      STRING(FIND ${_ffmpeg_pkg_config_path_element} / _ffmpeg_first_slash_index)
+      IF(_ffmpeg_first_slash_index GREATER 0)
+        STRING(PREPEND _ffmpeg_pkg_config_path_element "/")
+      ENDIF()
     ENDIF()
     LIST(APPEND _ffmpeg_pkg_config_path ${_ffmpeg_pkg_config_path_element})
   ENDFOREACH()
@@ -309,6 +338,13 @@ ELSE()
   )
 ENDIF()
 LIST(JOIN _ffmpeg_pkg_config_path ":" _ffmpeg_pkg_config_path)
+
+SET(_ffmpeg_env_vars
+    "PKG_CONFIG_PATH=${_ffmpeg_pkg_config_path}"
+)
+IF(RV_TARGET_WINDOWS)
+  LIST(APPEND _ffmpeg_env_vars "PKG_CONFIG=/mingw64/bin/pkg-config.exe")
+ENDIF()
 
 SEPARATE_ARGUMENTS(RV_FFMPEG_PATCH_COMMAND_STEP)
 
@@ -324,7 +360,7 @@ EXTERNALPROJECT_ADD(
   SOURCE_DIR ${RV_DEPS_BASE_DIR}/${_target}/src
   PATCH_COMMAND ${RV_FFMPEG_PATCH_COMMAND_STEP}
   CONFIGURE_COMMAND
-    ${CMAKE_COMMAND} -E env "PKG_CONFIG_PATH=${_ffmpeg_pkg_config_path}" ${_configure_command} --prefix=${_install_dir} ${RV_FFMPEG_COMMON_CONFIG_OPTIONS}
+    ${CMAKE_COMMAND} -E env ${_ffmpeg_env_vars} ${_configure_command} --prefix=${_install_dir} ${RV_FFMPEG_COMMON_CONFIG_OPTIONS}
     ${RV_FFMPEG_CONFIG_OPTIONS} ${RV_FFMPEG_EXTRA_C_OPTIONS} ${RV_FFMPEG_EXTRA_LIBPATH_OPTIONS} ${RV_FFMPEG_EXTERNAL_LIBS}
   BUILD_COMMAND ${_make_command} -j${_cpu_count}
   INSTALL_COMMAND ${_make_command} install

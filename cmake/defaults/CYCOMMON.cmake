@@ -122,6 +122,17 @@ ELSE()
   MESSAGE(FATAL_ERROR "FFMPEG_8, RV_FFMPEG_7, or RV_FFMPEG_6 must be defined to select the FFMPEG version to use")
 ENDIF()
 
+# x264 https://github.com/mirror/x264
+SET(RV_DEPS_X264_VERSION
+    "stable-31e19f9"
+)
+SET(RV_DEPS_X264_GIT_REF
+    "31e19f92f00c7003fa115047ce50978bc98c3a0d"
+)
+SET(RV_DEPS_X264_DOWNLOAD_HASH
+    "6dbf828a536e46e2e55a4760a4c026bf"
+)
+
 # gc https://github.com/ivmai/bdwgc
 SET(RV_DEPS_GC_VERSION
     "8.2.2"

@@ -8,6 +8,7 @@
 # Debugging options
 OPTION(RV_VERBOSE_INVOCATION "Show the compiler/link command invocation." OFF)
 OPTION(RV_SHOW_ALL_VARIABLES "Displays all build variables." ON)
+OPTION(RV_ENABLE_X264 "Enable GPL x264 / H.264 export support." ON)
 
 #
 # General build options

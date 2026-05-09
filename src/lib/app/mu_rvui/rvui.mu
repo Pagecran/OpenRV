@@ -4463,6 +4463,26 @@ global let enterFrame = startTextEntryMode(\: (string;) {"Go To Frame: ";}, goto
     }
 }
 
+\: exportFrameAs (void; Event ev, string requiredExt, (void;string) outputFunc)
+{
+    try
+    {
+        string f = saveFileDialog(false);
+        let ext = path.extension(f);
+
+        if (ext eq nil || ext == "")
+        {
+            f += "." + requiredExt;
+        }
+
+        outputFunc(f);
+    }
+    catch (...)
+    {
+        displayFeedback("Cancelled");
+    }
+}
+
 \: exportAttrs (void; Event ev)
 {
     State state = data();
@@ -6233,10 +6253,12 @@ global bool debugGC = false;
     try {
     Menu exportMenu = newMenu(MenuItem[] {
         menuItem("Quicktime Movie...", "key-down--control--e", "export_category", exportAs(, "mov", "Quicktime Export"), videoSourcesExistAndExportOKState),
+        menuItem("MP4 Movie...", "", "export_category", exportAs(, "mp4", "MP4 Export"), videoSourcesExistAndExportOKState),
         menuItem("Image Sequence...", "", "export_category", exportAs(, "*", "Image Sequence Export"), videoSourcesExistAndExportOKState),
         menuItem("Marked Frames...", "", "export_category", exportMarked, hasMarksState),
         menuItem("Annotated Frames...", "", "export_category", exportAnnotatedFrames, videoSourcesExistState),
         menuItem("Audio File...", "", "export_category", exportAs(, "*", "Audio Export"), sourcesExistState),
+        menuItem("Layout JPG...", "", "export_category", exportFrameAs(, "jpg", exportCurrentFrame), videoSourcesExistState),
         menuItem("Snapshot...", "", "export_category", exportFrame(,exportCurrentFrame), videoSourcesExistState),
         menuItem("Current Source Frame...", "", "export_category", exportFrame(,exportCurrentSourceFrame), videoSourcesExistState),
         menuItem("Image Attributes...", "", "export_category", exportAttrs, videoSourcesExistState),

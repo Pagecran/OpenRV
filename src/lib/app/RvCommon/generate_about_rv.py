@@ -42,6 +42,8 @@ def get_dependencies_info(versions, app_name, platform=""):
     is_commercial_rv = app_name == "RV"
     qt_license = "Qt Commercial" if is_commercial_rv else "LGPL v3"
     pyside_license = "Qt Commercial" if is_commercial_rv else "LGPL v3"
+    x264_enabled = versions.get("x264", "") not in ("", "Not Used")
+    ffmpeg_license = "GPL v3+ (libx264 + OpenSSL enabled)" if (x264_enabled and not is_commercial_rv) else "LGPL v2.1+"
 
     is_macos = "darwin" in platform.lower() or "macos" in platform.lower()
 
@@ -84,7 +86,7 @@ def get_dependencies_info(versions, app_name, platform=""):
         ("dav1d", get_version("dav1d"), "BSD 2-Clause"),
         ("Dear ImGui", get_version("imgui"), "MIT License"),
         ("Expat", get_version("expat"), "MIT License"),
-        ("FFmpeg", get_version("FFmpeg"), "LGPL v2.1+"),
+        ("FFmpeg", get_version("FFmpeg"), ffmpeg_license),
         ("GLEW", get_version("GLEW"), "Modified BSD / MIT"),
         ("libjpeg-turbo", get_version("jpegturbo"), "BSD-style"),
         ("libpng", get_version("png"), "libpng License"),
@@ -100,6 +102,9 @@ def get_dependencies_info(versions, app_name, platform=""):
         ("yaml-cpp", get_version("yaml-cpp"), "MIT License"),
         ("zlib", get_version("zlib"), "zlib License"),
     ]
+
+    if x264_enabled and not is_commercial_rv:
+        other_deps.append(("x264", get_version("x264"), "GPL v2+ or commercial"))
 
     return vfx_deps, other_deps, rv_specific_deps
 

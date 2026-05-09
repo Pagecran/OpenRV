@@ -4721,7 +4721,7 @@ namespace TwkMovie
             int duration = 0;
             int timeScale = 0;
             int movflagsIdx = -1;
-            bool x264Resize = false;
+            bool x264Resize = videoCodec == "libx264";
             for (int i = 0; i < m_request.parameters.size(); i++)
             {
                 const string& name = m_request.parameters[i].first;
@@ -5365,8 +5365,23 @@ namespace TwkMovie
 
         if (m_writeVideo)
         {
+            string requestedVideoCodec = m_request.codec;
+            string requestedVideoCodecLower = requestedVideoCodec;
+            boost::algorithm::to_lower(requestedVideoCodecLower);
+            if (requestedVideoCodecLower == "h264" || requestedVideoCodecLower == "h.264")
+            {
+                requestedVideoCodec = "libx264";
+            }
+
+            string outputExtension = boost::filesystem::path(m_filename).extension().string();
+            boost::algorithm::to_lower(outputExtension);
+
             vector<string> guesses;
-            guesses.push_back(m_request.codec);
+            guesses.push_back(requestedVideoCodec);
+            if (requestedVideoCodec.empty() && outputExtension == ".mp4")
+            {
+                guesses.push_back("libx264");
+            }
             guesses.push_back(RV_OUTPUT_VIDEO_CODEC);
             guesses.push_back(string(avcodec_get_name(m_avFormatContext->oformat->video_codec)));
             *videoCodec = getWriterCodec("video", guesses);

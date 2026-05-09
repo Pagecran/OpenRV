@@ -310,6 +310,27 @@ ELSE()
     )
   ENDIF()
 
+  SET(_openssl_pkgconfig_dir
+      ${_lib_dir}/pkgconfig
+  )
+  SET(_openssl_pc
+      ${_openssl_pkgconfig_dir}/openssl.pc
+  )
+  SET(_openssl_pc_template
+      ${_base_dir}/openssl.pc
+  )
+  FILE(CONFIGURE
+       OUTPUT ${_openssl_pc_template}
+       CONTENT "prefix=${_install_dir}\nexec_prefix=${_install_dir}\nlibdir=${_lib_dir}\nincludedir=${_include_dir}\n\nName: openssl\nDescription: OpenSSL cryptography and SSL/TLS toolkit\nVersion: ${_version}\nLibs: -L${_lib_dir} -lssl -lcrypto\nCflags: -I${_include_dir}\n"
+       @ONLY)
+  ADD_CUSTOM_COMMAND(
+    TARGET ${_target}
+    POST_BUILD
+    COMMENT "Creating pkg-config metadata for ${_target}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${_openssl_pkgconfig_dir}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_openssl_pc_template} ${_openssl_pc}
+  )
+
   SET(RV_DEPS_OPENSSL_VERSION
       ${_version}
       CACHE INTERNAL "" FORCE
@@ -340,4 +361,8 @@ ENDIF()
 SET_PROPERTY(
   GLOBAL APPEND
   PROPERTY "RV_FFMPEG_EXTERNAL_LIBS" "--enable-openssl"
+)
+SET_PROPERTY(
+  GLOBAL APPEND
+  PROPERTY "RV_FFMPEG_PKG_CONFIG_PATHS" "${_lib_dir}/pkgconfig"
 )

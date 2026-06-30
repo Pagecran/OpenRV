@@ -44,7 +44,7 @@ ENDIF()
 
 IF(RV_TARGET_WINDOWS)
   SET(_bootstrap_command
-      ./bootstrap.bat
+      ./bootstrap.bat vc143
   )
 ELSE()
   SET(_bootstrap_command
@@ -56,9 +56,26 @@ IF(RV_TARGET_WINDOWS)
   SET(_boost_python_bin
       ${RV_DEPS_BASE_DIR}/RV_DEPS_PYTHON3/install/python.exe
   )
+  SET(_boost_project_config
+      ${CMAKE_BINARY_DIR}/boost-project-config.jam
+  )
+  SET(_boost_vcvarsall
+      ${CMAKE_GENERATOR_INSTANCE}/VC/Auxiliary/Build/vcvarsall.bat
+  )
+  FILE(
+    WRITE
+    ${_boost_project_config}
+    "# Boost.Build Configuration\nimport option ;\nusing msvc : 14.3 : cl.exe : <setup>${_boost_vcvarsall} ;\noption.set keep-going : false ;\n"
+  )
+  SET(_boost_configure_extra
+      COMMAND ${CMAKE_COMMAND} -E copy ${_boost_project_config} project-config.jam
+  )
 ELSE()
   SET(_boost_python_bin
       ${RV_DEPS_BASE_DIR}/RV_DEPS_PYTHON3/install/bin/python
+  )
+  SET(_boost_configure_extra
+      ""
   )
 ENDIF()
 
@@ -92,6 +109,7 @@ EXTERNALPROJECT_ADD(
   URL ${_download_url}
   URL_MD5 ${_download_hash}
   CONFIGURE_COMMAND ${_bootstrap_command} --with-toolset=${_toolset} --with-python=${_boost_python_bin}
+                    ${_boost_configure_extra}
   BUILD_COMMAND
     # Ref.: https://www.boost.org/doc/libs/1_70_0/tools/build/doc/html/index.html#bbv2.builtin.features.cflags Ref.:
     # https://www.boost.org/doc/libs/1_76_0/tools/build/doc/html/index.html#bbv2.builtin.features.cflags

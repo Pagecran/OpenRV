@@ -27,11 +27,154 @@ OCIO_DEFAULTS = {}
 METHODS = ["ocio_config_from_media", "ocio_node_from_media"]
 
 
-def ocio_config_from_media(media, attributes):
-    if os.getenv("OCIO") is None:
-        raise Exception("ERROR: $OCIO environment variable unset!")
+def _normalize_color_space_name(value):
+    return "".join(c for c in value.lower() if c.isalnum())
 
-    return OCIO.GetCurrentConfig()
+
+def _media_extension(media):
+    if not media:
+        return ""
+
+    return os.path.splitext(media.split("?")[0])[1].lower().lstrip(".")
+
+
+def _packaged_config_roots():
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    return [
+        os.path.join(base_dir, "config"),
+        os.path.normpath(os.path.join(base_dir, "..", "SupportFiles", "ocio_source_setup", "config")),
+    ]
+
+
+def _default_config_candidates():
+    candidates = []
+    for root in _packaged_config_roots():
+        candidates.extend(
+            [
+                os.path.join(root, "aces_1.3", "config.ocio"),
+                os.path.join(root, "aces-1.3", "config.ocio"),
+                os.path.join(root, "aces_2.0", "config.ocio"),
+                os.path.join(root, "aces-2.0", "config.ocio"),
+                os.path.join(root, "config.ocio"),
+            ]
+        )
+
+    unique_candidates = []
+    for candidate in candidates:
+        if candidate not in unique_candidates:
+            unique_candidates.append(candidate)
+
+    return unique_candidates
+
+
+def _discover_ocio_config_path():
+    config_path = os.getenv("OCIO")
+    if config_path and os.path.exists(config_path):
+        return config_path
+
+    for candidate in _default_config_candidates():
+        if os.path.exists(candidate):
+            # RV's native OCIO nodes still query the OCIO environment variable.
+            os.environ["OCIO"] = candidate
+            print("INFO: OCIO Source Setup: using bundled config %s" % candidate)
+            return candidate
+
+    return None
+
+
+def _config_color_space_names(config):
+    return [cs.getName() for cs in config.getColorSpaces()]
+
+
+def _match_config_color_space(config, exact=None, contains=None, excludes=None):
+    names = _config_color_space_names(config)
+    normalized = {_normalize_color_space_name(name): name for name in names}
+
+    for candidate in exact or []:
+        match = normalized.get(_normalize_color_space_name(candidate))
+        if match:
+            return match
+
+    contains = contains or []
+    excludes = excludes or []
+    for name in names:
+        normalized_name = _normalize_color_space_name(name)
+        if contains and not all(token in normalized_name for token in contains):
+            continue
+        if any(token in normalized_name for token in excludes):
+            continue
+        return name
+
+    return ""
+
+
+def _resolve_acescg_color_space(config):
+    return _match_config_color_space(
+        config,
+        exact=["ACEScg", "ACES - ACEScg", "lin_ap1", "Linear AP1"],
+        contains=["acescg"],
+    ) or _match_config_color_space(config, contains=["lin", "ap1"])
+
+
+def _resolve_srgb_color_space(config):
+    return _match_config_color_space(
+        config,
+        exact=["Utility - sRGB - Texture", "Input - Generic - sRGB - Texture", "sRGB - Texture", "sRGB"],
+        contains=["srgb", "texture"],
+        excludes=["display", "view", "output"],
+    ) or _match_config_color_space(config, contains=["srgb"], excludes=["display", "view", "output"])
+
+
+def _color_space_from_color_interop_id(config, color_interop_id):
+    normalized = _normalize_color_space_name(color_interop_id)
+
+    if "acescg" in normalized or ("linear" in normalized and "ap1" in normalized) or "linap1" in normalized:
+        return _resolve_acescg_color_space(config)
+
+    if "srgb" in normalized:
+        return _resolve_srgb_color_space(config)
+
+    return ""
+
+
+def _default_input_color_space(config, media, attributes, default_setting=""):
+    if default_setting:
+        return _match_config_color_space(config, exact=[default_setting]) or default_setting
+
+    color_interop_id = attributes.get("EXR/colorInteropID", "")
+    if color_interop_id:
+        color_space = _color_space_from_color_interop_id(config, color_interop_id)
+        if color_space:
+            return color_space
+
+    transfer = attributes.get("ColorSpace/Transfer", "")
+    if transfer.lower() == "srgb":
+        color_space = _resolve_srgb_color_space(config)
+        if color_space:
+            return color_space
+
+    if _media_extension(media) == "exr":
+        return _resolve_acescg_color_space(config)
+
+    return _resolve_srgb_color_space(config)
+
+
+def _should_enable_source_ocio(media, attributes, default_setting=""):
+    if default_setting:
+        return True
+
+    if _media_extension(media) == "exr":
+        return True
+
+    return False
+
+
+def ocio_config_from_media(media, attributes):
+    config_path = _discover_ocio_config_path()
+    if config_path is None:
+        return None
+
+    return OCIO.Config.CreateFromFile(config_path)
 
 
 def ocio_node_from_media(config, node, default, media=None, attributes={}):
@@ -55,9 +198,12 @@ def ocio_node_from_media(config, node, default, media=None, attributes={}):
         ]
 
     elif nodeType == "RVLinearizePipelineGroup":
+        if not _should_enable_source_ocio(media, attributes, attributes.get("default_setting", "")):
+            return result
+
         inspace = config.parseColorSpaceFromString(media)
         if inspace == "":
-            inspace = attributes.get("default_setting", "")
+            inspace = _default_input_color_space(config, media, attributes, attributes.get("default_setting", ""))
         if inspace != "":
             result = [
                 {
@@ -266,6 +412,16 @@ class OCIOSourceSetupMode(rvtypes.MinorMode):
         if self.config is None:
             try:
                 self.config = ocio_config_from_media(media, attrDict)
+                if self.config is None:
+                    if not self.missingConfigWarned:
+                        print(
+                            (
+                                "INFO: OCIO Source Setup: no config found. Set $OCIO or add a config at one of: %s"
+                                % ", ".join(_default_config_candidates())
+                            )
+                        )
+                        self.missingConfigWarned = True
+                    return
                 OCIO.SetCurrentConfig(self.config)
                 commands.defineModeMenu("OCIO Source Setup", self.buildOCIOMenu(), True)
             except Exception as inst:
@@ -541,6 +697,8 @@ class OCIOSourceSetupMode(rvtypes.MinorMode):
         if self.config is None:
             try:
                 self.config = ocio_config_from_media(None, None)
+                if self.config is None:
+                    return [("OCIO", [("Choose Config...", self.selectConfig, None, None)])]
                 OCIO.SetCurrentConfig(self.config)
             except Exception:
                 return [("OCIO", [("Choose Config...", self.selectConfig, None, None)])]
@@ -694,6 +852,7 @@ class OCIOSourceSetupMode(rvtypes.MinorMode):
         self.usingOCIOForDisplay = {}
         self.readingSession = False
         self.config = None
+        self.missingConfigWarned = False
 
         #
         #   Look for an implementation of the OCIOHelper on the PATH.

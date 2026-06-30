@@ -1,0 +1,19 @@
+package: Export JPEG
+author: Etienne GAU
+organization: Pagecran
+version: 1.1
+rv: 2026.0.0
+openrv: 3.1.0
+optional: true
+requires: ''
+
+modes:
+  - file: export_jpeg.py
+    load: immediate
+
+description: |
+  <p>
+  Ajoute des options d'export JPEG dans File/Export pour exporter l'image
+  courante, la sequence courante, chaque image visible d'un layout, ou le
+  layout complet en une seule capture.
+  </p>

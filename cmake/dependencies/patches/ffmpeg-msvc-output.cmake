@@ -1,0 +1,6 @@
+FILE(READ "configure" _configure)
+STRING(REPLACE "CC_O='-o $@'" "CC_O='-Fo$@'" _configure "${_configure}")
+STRING(REPLACE "HOSTCC_O='-o $@'" "HOSTCC_O='-Fo$@'" _configure "${_configure}")
+STRING(REPLACE "grep -q ^Microsoft" "grep -q Microsoft" _configure "${_configure}")
+STRING(REPLACE "grep ^Microsoft" "grep Microsoft" _configure "${_configure}")
+FILE(WRITE "configure" "${_configure}")

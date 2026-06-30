@@ -75,6 +75,25 @@ EXTERNALPROJECT_ADD(
 FILE(MAKE_DIRECTORY ${_include_dir})
 
 IF(RV_TARGET_WINDOWS)
+  SET(_openssl_pkgconfig_dir
+      ${_install_dir}/lib/pkgconfig
+  )
+  FILE(MAKE_DIRECTORY ${_openssl_pkgconfig_dir})
+  FILE(
+    WRITE
+    ${_openssl_pkgconfig_dir}/libcrypto.pc
+    "prefix=${_install_dir}\nexec_prefix=\${prefix}\nlibdir=\${exec_prefix}/lib\nincludedir=\${prefix}/include\n\nName: OpenSSL-libcrypto\nDescription: OpenSSL cryptography library\nVersion: ${_version}\nLibs: -L\${libdir} -lcrypto\nCflags: -I\${includedir}\n"
+  )
+  FILE(
+    WRITE
+    ${_openssl_pkgconfig_dir}/libssl.pc
+    "prefix=${_install_dir}\nexec_prefix=\${prefix}\nlibdir=\${exec_prefix}/lib\nincludedir=\${prefix}/include\n\nName: OpenSSL-libssl\nDescription: Secure Sockets Layer and cryptography libraries\nVersion: ${_version}\nRequires.private: libcrypto\nLibs: -L\${libdir} -lssl\nCflags: -I\${includedir}\n"
+  )
+  FILE(
+    WRITE
+    ${_openssl_pkgconfig_dir}/openssl.pc
+    "prefix=${_install_dir}\nexec_prefix=\${prefix}\nlibdir=\${exec_prefix}/lib\nincludedir=\${prefix}/include\n\nName: OpenSSL\nDescription: Secure Sockets Layer and cryptography libraries and tools\nVersion: ${_version}\nRequires: libssl libcrypto\n"
+  )
   ADD_CUSTOM_COMMAND(
     TARGET ${_target}
     POST_BUILD

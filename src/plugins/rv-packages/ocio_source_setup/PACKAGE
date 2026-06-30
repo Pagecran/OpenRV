@@ -1,11 +1,11 @@
 package: OpenColorIO Basic Color Management
 author: Autodesk, Inc.
 organization: Autodesk, Inc.
-version: 2.5
+version: 2.6
 requires: ''
 rv: 4.0
 openrv: 1.0.0
-optional: true
+optional: false
 system: true
 hidden: false
 
@@ -15,6 +15,12 @@ modes:
     shortcut: ''
     event: ''
     load: immediate
+
+files:
+  - file: README-configs.txt
+    location: SupportFiles/$PACKAGE
+  - file: config/aces_1.3/config.ocio
+    location: SupportFiles/$PACKAGE/config/aces_1.3
 
 description: |
     <p>

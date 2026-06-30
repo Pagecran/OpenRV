@@ -332,8 +332,12 @@ SET(_requirements_install_command
 # When MSBuild's CUSTOMBUILD later runs the command, the semicolon splits the value and the POSIX tail is misinterpreted as the command to execute ("no such
 # file or directory"). --modify prepends at runtime instead.
 IF(RV_TARGET_WINDOWS)
+  LIST(APPEND RV_PYTHON_WHEEL_SAFE "numpy")
+  STRING(REPLACE ";" "," _wheel_safe_packages "${RV_PYTHON_WHEEL_SAFE}")
+
   CMAKE_PATH(GET CMAKE_COMMAND PARENT_PATH _cmake_bin_dir)
   LIST(APPEND _requirements_install_command "--modify" "PATH=path_list_prepend:${_cmake_bin_dir}")
+  LIST(APPEND _requirements_install_command "--modify" "PATH=path_list_prepend:${_install_dir}/Scripts")
 
   # Also prepend the MSVC compiler directory so nested CMake invocations (e.g. from OTIO's setup.py / scikit-build) can find cl.exe. On MSVC, CMAKE_C_COMPILER
   # and CMAKE_CXX_COMPILER both point to cl.exe in the same HostX64\x64 directory, so a single PATH prepend covers both C and C++ compilation. We use

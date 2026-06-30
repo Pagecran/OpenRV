@@ -174,6 +174,9 @@ LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--disable-vaapi")
 LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--disable-doc")
 IF(RV_TARGET_WINDOWS)
   LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--toolchain=msvc")
+  LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--target-os=win64")
+  LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--arch=x86_64")
+  LIST(APPEND RV_FFMPEG_PATCH_COMMAND_STEP ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/patches/ffmpeg-msvc-output.cmake)
 ENDIF()
 
 # Disable x11 on macOS to avoid linking against Homebrew's X11 libraries, ensuring binary portability
